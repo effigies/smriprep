@@ -369,7 +369,7 @@ def build_workflow(opts, retval):
         },
         'execution': {
             'crashdump_dir': str(log_dir),
-            'crashfile_format': 'txt',
+            # 'crashfile_format': 'txt',
             'get_linked_libs': False,
             'stop_on_first_crash': opts.stop_on_first_crash,
         },
