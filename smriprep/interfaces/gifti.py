@@ -18,6 +18,7 @@ class MetricMathInputSpec(TraitedSpec):
     operation = traits.Enum(
         "invert",
         "abs",
+        "bin",
         mandatory=True,
         desc='operation to perform',
     )
@@ -58,17 +59,22 @@ class MetricMath(SimpleInterface):
         meta = darray.meta
         meta['Name'] = f"{subject}_{hemi}_{shape}"
 
+        datatype = darray.datatype
         if self.inputs.operation == "abs":
             # wb_command -metric-math "abs(var)"
             data = abs(darray.data)
         elif self.inputs.operation == "invert":
             # wb_command -metric-math "var * -1"
             data = -darray.data
+        elif self.inputs.operation == "bin":
+            # wb_command -metric-math "var > 0"
+            data = darray.data > 0
+            datatype = 'uint8'
 
         darray = nb.gifti.GiftiDataArray(
             data,
             intent=darray.intent,
-            datatype=darray.datatype,
+            datatype=datatype,
             encoding=darray.encoding,
             endian=darray.endian,
             coordsys=darray.coordsys,
