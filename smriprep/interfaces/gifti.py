@@ -5,7 +5,7 @@ import nibabel as nb
 from nipype.interfaces.base import File, SimpleInterface, TraitedSpec, isdefined, traits
 
 
-class InvertShapeInputSpec(TraitedSpec):
+class MetricMathInputSpec(TraitedSpec):
     subject_id = traits.Str(desc='subject ID')
     hemisphere = traits.Enum(
         "L",
@@ -13,15 +13,21 @@ class InvertShapeInputSpec(TraitedSpec):
         mandatory=True,
         desc='hemisphere',
     )
-    shape = traits.Str(desc='name of shape to invert')
-    shape_file = File(exists=True, mandatory=True, desc='input GIFTI file')
+    metric = traits.Str(desc='name of shape to invert')
+    metric_file = File(exists=True, mandatory=True, desc='input GIFTI file')
+    operation = traits.Enum(
+        "invert",
+        "abs",
+        mandatory=True,
+        desc='operation to perform',
+    )
 
 
-class InvertShapeOutputSpec(TraitedSpec):
-    shape_file = File(desc='output GIFTI file')
+class MetricMathOutputSpec(TraitedSpec):
+    metric_file = File(desc='output GIFTI file')
 
 
-class InvertShape(SimpleInterface):
+class MetricMath(SimpleInterface):
     """Prepare GIFTI shape file for use in MSMSulc
 
     This interface mirrors the action of the following portion
@@ -30,12 +36,14 @@ class InvertShape(SimpleInterface):
         wb_command -set-structure ${shape_file} CORTEX_[LEFT|RIGHT]
         wb_command -metric-math "var * -1" ${shape_file} -var var ${shape_file}
         wb_command -set-map-names ${shape_file} -map 1 ${subject}_[L|R]_${shape}
+        # If abs:
+        wb_command -metric-math "abs(var)" ${shape_file} -var var ${shape_file}
 
     We do not add palette information to the output file.
     """
 
-    input_spec = InvertShapeInputSpec
-    output_spec = InvertShapeOutputSpec
+    input_spec = MetricMathInputSpec
+    output_spec = MetricMathOutputSpec
 
     def _run_interface(self, runtime):
         subject, hemi, shape = self.inputs.subject_id, self.inputs.hemisphere, self.inputs.shape
@@ -50,11 +58,15 @@ class InvertShape(SimpleInterface):
         meta = darray.meta
         meta['Name'] = f"{subject}_{hemi}_{shape}"
 
-        # wb_command -metric-math "var * -1"
-        inv = -darray.data
+        if self.inputs.operation == "abs":
+            # wb_command -metric-math "abs(var)"
+            data = abs(darray.data)
+        elif self.inputs.operation == "invert":
+            # wb_command -metric-math "var * -1"
+            data = -darray.data
 
         darray = nb.gifti.GiftiDataArray(
-            inv,
+            data,
             intent=darray.intent,
             datatype=darray.datatype,
             encoding=darray.encoding,

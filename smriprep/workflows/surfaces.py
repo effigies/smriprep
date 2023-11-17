@@ -742,7 +742,7 @@ def init_fsLR_reg_wf(*, name="fsLR_reg_wf"):
 
 def init_msm_sulc_wf(*, sloppy: bool = False, name: str = 'msm_sulc_wf'):
     """Run MSMSulc registration to fsLR surfaces, per hemisphere."""
-    from ..interfaces.gifti import InvertShape
+    from ..interfaces.gifti import MetricMath
     from ..interfaces.msm import MSM
     from ..interfaces.workbench import (
         SurfaceAffineRegression,
@@ -789,8 +789,8 @@ def init_msm_sulc_wf(*, sloppy: bool = False, name: str = 'msm_sulc_wf'):
     # 2) Invert sulc
     # wb_command -metric-math "-1 * var" ...
     invert_sulc = pe.MapNode(
-        InvertShape(shape='sulc'),
-        iterfield=['shape_file', 'hemisphere'],
+        MetricMath(metric='sulc', operation='invert'),
+        iterfield=['metric_file', 'hemisphere'],
         name='invert_sulc',
     )
     invert_sulc.inputs.hemisphere = ['L', 'R']
@@ -823,11 +823,11 @@ def init_msm_sulc_wf(*, sloppy: bool = False, name: str = 'msm_sulc_wf'):
             ('sphere_reg_fsLR', 'target_surface'),
         ]),
         (inputnode, apply_surface_affine, [('sphere', 'in_surface')]),
-        (inputnode, invert_sulc, [('sulc', 'shape_file')]),
+        (inputnode, invert_sulc, [('sulc', 'metric_file')]),
         (regress_affine, apply_surface_affine, [('out_affine', 'in_affine')]),
         (apply_surface_affine, modify_sphere, [('out_surface', 'in_surface')]),
         (modify_sphere, msmsulc, [('out_surface', 'in_mesh')]),
-        (invert_sulc, msmsulc, [('shape_file', 'in_data')]),
+        (invert_sulc, msmsulc, [('metric_file', 'in_data')]),
         (msmsulc, outputnode, [('warped_mesh', 'sphere_reg_fsLR')]),
     ])  # fmt:skip
     return workflow
