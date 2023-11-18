@@ -803,6 +803,80 @@ def init_ds_surface_metrics_wf(
     return workflow
 
 
+def init_ds_grayord_metrics_wf(
+    *,
+    bids_root: str,
+    output_dir: str,
+    metrics: list[str],
+    cifti_output: ty.Literal["91k", "170k"],
+    name="ds_surface_metrics_wf",
+) -> Workflow:
+    """
+    Save CIFTI-2 surface metrics
+
+    Parameters
+    ----------
+    bids_root : :class:`str`
+        Root path of BIDS dataset
+    output_dir : :class:`str`
+        Directory in which to save derivatives
+    metrics : :class:`str`
+        List of metrics to generate DataSinks for
+    cifti_output : :class:`str`
+        Density of CIFTI-2 files to save
+    name : :class:`str`
+        Workflow name (default: ds_surface_metrics_wf)
+
+    Inputs
+    ------
+    source_files
+        List of input T1w images
+    ``<metric>``
+        CIFTI-2 scalar file for each metric passed to ``metrics``
+    ``<metric>_metadata``
+        JSON file containing metadata for each metric passed to ``metrics``
+
+    Outputs
+    -------
+    ``<metric>``
+        CIFTI-2 scalar file in ``output_dir`` for each metric passed to ``metrics``
+
+    """
+    workflow = Workflow(name=name)
+
+    inputnode = pe.Node(
+        niu.IdentityInterface(
+            fields=["source_files"] + metrics + [f"{m}_metadata" for m in metrics]
+        ),
+        name="inputnode",
+    )
+    outputnode = pe.Node(niu.IdentityInterface(fields=metrics), name="outputnode")
+
+    for metric in metrics:
+        ds_metric = pe.Node(
+            DerivativesDataSink(
+                base_directory=output_dir,
+                density=cifti_output,
+                suffix=metric,
+                compress=False,
+                extension=".dscalar.nii",
+            ),
+            name=f"ds_{metric}",
+            run_without_submitting=True,
+        )
+
+        workflow.connect([
+            (inputnode, ds_metric, [
+                ('source_files', 'source_file'),
+                (metric, 'in_file'),
+                ((f'{metric}_metadata', _read_jsons), 'meta_dict'),
+            ]),
+            (ds_metric, outputnode, [('out_file', metric)]),
+        ])  # fmt:skip
+
+    return workflow
+
+
 def init_ds_anat_volumes_wf(
     *,
     bids_root: str,
@@ -999,17 +1073,8 @@ def init_anat_second_derivatives_wf(
             fields=[
                 "template",
                 "source_files",
-                "t1w_preproc",
-                "t1w_mask",
-                "t1w_dseg",
-                "t1w_tpms",
-                "anat2std_xfm",
-                "sphere_reg",
-                "sphere_reg_fsLR",
                 "t1w_fs_aseg",
                 "t1w_fs_aparc",
-                "cifti_morph",
-                "cifti_metadata",
             ]
         ),
         name="inputnode",
@@ -1041,26 +1106,6 @@ def init_anat_second_derivatives_wf(
     ])
     # fmt:on
 
-    if cifti_output:
-        ds_cifti_morph = pe.MapNode(
-            DerivativesDataSink(
-                base_directory=output_dir,
-                density=cifti_output,
-                suffix=['curv', 'sulc', 'thickness'],
-                compress=False,
-                space='fsLR',
-            ),
-            name='ds_cifti_morph',
-            run_without_submitting=True,
-            iterfield=["in_file", "meta_dict", "suffix"],
-        )
-        # fmt:off
-        workflow.connect([
-            (inputnode, ds_cifti_morph, [('cifti_morph', 'in_file'),
-                                         ('source_files', 'source_file'),
-                                         (('cifti_metadata', _read_jsons), 'meta_dict')])
-        ])
-        # fmt:on
     return workflow
 
 
