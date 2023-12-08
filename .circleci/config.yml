@@ -201,9 +201,24 @@ jobs:
     steps:
       - restore_cache:
           keys:
-            - testdata-v2-{{ .Branch }}-{{ epoch }}
-            - testdata-v2-{{ .Branch }}
-            - testdata-v2-
+            - testdata-v3
+      - run:
+          name: Initialize pyenv properly
+          command: |
+            pyenv init >> ~/.bashrc
+      - run:
+          name: Enable NeuroDebian repository
+          command: |
+            sudo GNUPGHOME=/tmp gpg --keyserver hkps://keyserver.ubuntu.com --no-default-keyring --keyring /usr/share/keyrings/neurodebian.gpg --recv 0xA5D32F012649A5A9
+            wget -O- http://neuro.debian.net/lists/jammy.us-nh.libre | \
+                sed -e 's/ / [signed-by=\/usr\/share\/keyrings\/neurodebian.gpg] /' | \
+                sudo tee /etc/apt/sources.list.d/neurodebian.sources.list
+            sudo apt update
+      - run:
+          name: Install datalad
+          command: |
+            sudo apt install --no-install-recommends git-annex-standalone
+            python -m pip install datalad datalad-next datalad-osf
       - run:
           name: Get test data from ds000005
           command: |
@@ -228,14 +243,12 @@ jobs:
       - run:
           name: Get FreeSurfer derivatives for ds000005
           command: |
-            if [[ ! -d /tmp/ds005/freesurfer ]]; then
-              mkdir -p /tmp/ds005
-              wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 0 -q \
-                -O ds005_derivatives_freesurfer.tar.gz "https://files.osf.io/v1/resources/fvuh8/providers/osfstorage/58fe59eb594d900250960180"
-              tar xvzf ds005_derivatives_freesurfer.tar.gz -C /tmp/ds005
-            else
-              echo "FreeSurfer derivatives of ds000005 were cached"
+            if [[ ! -d /tmp/ds000005-freesurfer ]]; then
+              datalad clone https://github.com/nipreps-data/ds000005-freesurfer.git /tmp/ds000005-freesurfer
             fi
+            datalad get -d /tmp/ds000005-freesurfer -J 4
+            datalad unlock -d /tmp/ds000005-freesurfer
+            git -C /tmp/ds000005-freesurfer commit -m 'Save unlocked files'
       - run:
           name: Store FreeSurfer license file
           command: |
@@ -247,10 +260,10 @@ jobs:
           paths:
             - fslicense
       - save_cache:
-          key: testdata-v2-{{ .Branch }}-{{ epoch }}
+          key: testdata-v3
           paths:
             - /tmp/data
-            - /tmp/ds005/freesurfer
+            - /tmp/ds000005-freesurfer
       - checkout:
           path: /tmp/src/smriprep
       - restore_cache:
