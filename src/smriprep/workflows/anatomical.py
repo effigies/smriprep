@@ -1359,7 +1359,7 @@ A {t2w_or_flair} image was used to improve pial surface refinement.
         LOGGER.info('ANAT Stage 10: MSM-Sulc disabled')
 
     # Stage 11: Cortical surface mask
-    if not (cortex_mask := surfaces.get('cortex_mask')):
+    if not (cortex_mask := surfaces.get('cortex')):
         LOGGER.info('ANAT Stage 11: Creating cortical surface mask')
 
         cortex_masks_wf = init_cortex_masks_wf()
