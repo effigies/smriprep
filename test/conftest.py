@@ -28,6 +28,9 @@ from pathlib import Path
 import nibabel as nb
 import numpy as np
 import pytest
+from niworkflows.utils.testing import generate_bids_skeleton
+
+from .utils import DERIV_SKELETON
 
 
 @pytest.fixture(scope='session', autouse=True)
@@ -121,3 +124,10 @@ def make_gifti_surface():
         return str(path)
 
     return _make
+
+
+@pytest.fixture
+def deriv_dset(tmp_path):
+    deriv_dir = tmp_path / 'derivatives'
+    generate_bids_skeleton(deriv_dir, str(DERIV_SKELETON))
+    return deriv_dir
